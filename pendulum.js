@@ -1,158 +1,147 @@
-const G = 3.0; // gravitational constant
-const M = 2.0; // mass
+"use strict";
+const G = 2.0; // gravitational constant
+const M = 1.0; // mass
 const L = 1.0; // length
 const dtMax = 30.0; // ms
-const historyLength = 256; // tail length
+const tailMax = 400; // tail length
 
-// Update pendulum by timestep
-function update(s, dt) {
-    const ml2 = M * L * L;
-    function fda0(a0, a1, p0, p1) {
-        const cos01 = Math.cos(a0 - a1);
-        return 6 / ml2 * (2 * p0 - 3 * cos01 * p1) / (16 - 9 * cos01 * cos01);
-    }
-    function fda1(a0, a1, p0, p1) {
-        const cos01 = Math.cos(a0 - a1);
-        return 6 / ml2 * (8 * p1 - 3 * cos01 * p0) / (16 - 9 * cos01 * cos01);
-    }
-    function fdp0(a0, a1, da0, da1, p0, p1) {
-        const sin01 = Math.sin(a0 - a1);
-        return ml2 / -2 * (+da0 * da1 * sin01 + 3 * G / L * Math.sin(a0));
-    }
-    function fdp1(a0, a1, da0, da1, p0, p1) {
-        const sin01 = Math.sin(a0 - a1);
-        return ml2 / -2 * (-da0 * da1 * sin01 + 3 * G / L * Math.sin(a1));
-    }
-
-    // Classical Runge–Kutta (RK4)
-    const k1a0 = s.a0;
-    const k1a1 = s.a1;
-    const k1p0 = s.p0;
-    const k1p1 = s.p1;
-
-    const k1da0 = fda0(k1a0, k1a1, k1p0, k1p1);
-    const k1da1 = fda1(k1a0, k1a1, k1p0, k1p1);
-    const k1dp0 = fdp0(k1a0, k1a1, k1da0, k1da1, k1p0, k1p1);
-    const k1dp1 = fdp1(k1a0, k1a1, k1da0, k1da1, k1p0, k1p1);
-
-    const k2a0 = k1a0 + k1da0 * dt / 2;
-    const k2a1 = k1a1 + k1da1 * dt / 2;
-    const k2p0 = k1p0 + k1dp0 * dt / 2;
-    const k2p1 = k1p1 + k1dp1 * dt / 2;
-
-    const k2da0 = fda0(k2a0, k2a1, k2p0, k2p1);
-    const k2da1 = fda1(k2a0, k2a1, k2p0, k2p1);
-    const k2dp0 = fdp0(k2a0, k2a1, k2da0, k2da1, k2p0, k2p1);
-    const k2dp1 = fdp1(k2a0, k2a1, k2da0, k2da1, k2p0, k2p1);
-
-    const k3a0 = k1a0 + k2da0 * dt / 2;
-    const k3a1 = k1a1 + k2da1 * dt / 2;
-    const k3p0 = k1p0 + k2dp0 * dt / 2;
-    const k3p1 = k1p1 + k2dp1 * dt / 2;
-
-    const k3da0 = fda0(k3a0, k3a1, k3p0, k3p1);
-    const k3da1 = fda1(k3a0, k3a1, k3p0, k3p1);
-    const k3dp0 = fdp0(k3a0, k3a1, k3da0, k3da1, k3p0, k3p1);
-    const k3dp1 = fdp1(k3a0, k3a1, k3da0, k3da1, k3p0, k3p1);
-
-    const k4a0 = k1a0 + k3da0 * dt;
-    const k4a1 = k1a1 + k3da1 * dt;
-    const k4p0 = k1p0 + k3dp0 * dt;
-    const k4p1 = k1p1 + k3dp1 * dt;
-
-    const k4da0 = fda0(k4a0, k4a1, k4p0, k4p1);
-    const k4da1 = fda1(k4a0, k4a1, k4p0, k4p1);
-    const k4dp0 = fdp0(k4a0, k4a1, k4da0, k4da1, k4p0, k4p1);
-    const k4dp1 = fdp1(k4a0, k4a1, k4da0, k4da1, k4p0, k4p1);
-
-    s.a0 = k1a0 + (k1da0 + 2*k2da0 + 2*k3da0 + k4da0) * dt / 6;
-    s.a1 = k1a1 + (k1da1 + 2*k2da1 + 2*k3da1 + k4da1) * dt / 6;
-    s.p0 = k1p0 + (k1dp0 + 2*k2dp0 + 2*k3dp0 + k4dp0) * dt / 6;
-    s.p1 = k1p1 + (k1dp1 + 2*k2dp1 + 2*k3dp1 + k4dp1) * dt / 6;
+function deriviative(a1, a2, p1, p2) {
+    let ml2 = M * L * L;
+    let cos12 = Math.cos(a1 - a2);
+    let sin12 = Math.sin(a1 - a2);
+    let da1 = 6 / ml2 * (2 * p1 - 3 * cos12 * p2) / (16 - 9 * cos12 * cos12);
+    let da2 = 6 / ml2 * (8 * p2 - 3 * cos12 * p1) / (16 - 9 * cos12 * cos12);
+    let dp1 = ml2 / -2 * (+da1 * da2 * sin12 + 3 * G / L * Math.sin(a1));
+    let dp2 = ml2 / -2 * (-da1 * da2 * sin12 + 3 * G / L * Math.sin(a2));
+    return [da1, da2, dp1, dp2];
 }
 
-// Render a given double pendulum to a context
-function draw(ctx, s, history, histi) {
-    const w = ctx.canvas.width;
-    const h = ctx.canvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
-    const d = w / 5;
-    const offset = Math.PI / 2;
-    const x0 = Math.cos(s.a0 + offset) * d + cx;
-    const y0 = Math.sin(s.a0 + offset) * d + cy;
-    const x1 = Math.cos(s.a1 + offset) * d + x0;
-    const y1 = Math.sin(s.a1 + offset) * d + y0;
+// Update pendulum by timestep
+function rk4(k1a1, k1a2, k1p1, k1p2, dt) {
+    let [k1da1, k1da2, k1dp1, k1dp2] = deriviative(k1a1, k1a2, k1p1, k1p2);
+
+    let k2a1 = k1a1 + k1da1 * dt / 2;
+    let k2a2 = k1a2 + k1da2 * dt / 2;
+    let k2p1 = k1p1 + k1dp1 * dt / 2;
+    let k2p2 = k1p2 + k1dp2 * dt / 2;
+
+    let [k2da1, k2da2, k2dp1, k2dp2] = deriviative(k2a1, k2a2, k2p1, k2p2);
+
+    let k3a1 = k1a1 + k2da1 * dt / 2;
+    let k3a2 = k1a2 + k2da2 * dt / 2;
+    let k3p1 = k1p1 + k2dp1 * dt / 2;
+    let k3p2 = k1p2 + k2dp2 * dt / 2;
+
+    let [k3da1, k3da2, k3dp1, k3dp2] = deriviative(k3a1, k3a2, k3p1, k3p2);
+
+    let k4a1 = k1a1 + k3da1 * dt;
+    let k4a2 = k1a2 + k3da2 * dt;
+    let k4p1 = k1p1 + k3dp1 * dt;
+    let k4p2 = k1p2 + k3dp2 * dt;
+
+    let [k4da1, k4da2, k4dp1, k4dp2] = deriviative(k4a1, k4a2, k4p1, k4p2);
+
+    return [
+        k1a1 + (k1da1 + 2*k2da1 + 2*k3da1 + k4da1) * dt / 6,
+        k1a2 + (k1da2 + 2*k2da2 + 2*k3da2 + k4da2) * dt / 6,
+        k1p1 + (k1dp1 + 2*k2dp1 + 2*k3dp1 + k4dp1) * dt / 6,
+        k1p2 + (k1dp2 + 2*k2dp2 + 2*k3dp2 + k4dp2) * dt / 6
+    ];
+}
+
+function history(n) {
+    let h = {
+        i: 0,
+        length: 0,
+        x: new Float32Array(n),
+        y: new Float32Array(n),
+        push: function(x, y) {
+            h.x[h.i] = x;
+            h.y[h.i] = y;
+            h.i = (h.i + 1) % n;
+            if (h.length < n)
+                h.length++;
+        },
+        visit: function(f) {
+            for (let j = h.i + n - 2; j > h.i + n - h.length - 1; j--) {
+                let a = (j + 1) % n;
+                let b = (j + 0) % n;
+                f(h.x[a], h.y[a], h.x[b], h.y[b]);
+            }
+        }
+    };
+    return h;
+}
+
+function draw(ctx, tail, a1, a2, p1, p2) {
+    let w = ctx.canvas.width;
+    let h = ctx.canvas.height;
+    let cx = w / 2;
+    let cy = h / 2;
+    let d = Math.min(w, h) / 4.2;
+    let x0 = Math.sin(a1) * d + cx;
+    let y0 = Math.cos(a1) * d + cy;
+    let x1 = Math.sin(a2) * d + x0;
+    let y1 = Math.cos(a2) * d + y0;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.lineWidth = 1.5;
-    const len = history.length;
-    history[histi].x = x1;
-    history[histi].y = y1;
-    history[histi].valid = true;
-    let px = x1;
-    let py = y1;
-    for (let i = histi + len - 1; i > histi; i--) {
-        if (history[i % len].valid) {
-            let x = history[i % len].x;
-            let y = history[i % len].y;
-            let g = (i - histi) / len;
-            ctx.strokeStyle = 'rgba(0, 0, 256, ' + Math.sqrt(g) + ')';
-            ctx.beginPath();
-            ctx.moveTo(px, py);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            px = x;
-            py = y;
-        }
-    }
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = d / 60;
+    tail.push(x1, y1);
+    let n = tail.length;
+    tail.visit(function(x0, y0, x1, y1) {
+        let g = n-- / tail.length;
+        ctx.strokeStyle = 'rgba(0, 0, 256, ' + Math.sqrt(g) + ')';
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+    });
 
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = d / 30;
+    ctx.lineCap = 'round';
     ctx.strokeStyle = 'black';
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x0, y0);
+    ctx.stroke();
+    ctx.beginPath(); // draw separately to avoid common canvas bug
+    ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(x0, y0, d / 20, 0, 2 * Math.PI);
-    ctx.arc(x1, y1, d / 20, 0, 2 * Math.PI);
+    ctx.arc(x0, y0, d / 15, 0, 2 * Math.PI);
+    ctx.arc(x1, y1, d / 15, 0, 2 * Math.PI);
     ctx.fill();
 }
 
-// Create a random double pendulum
-function generate() {
-    return {
-        a0: Math.random() * Math.PI + Math.PI / 2,
-        a1: Math.random() * Math.PI + Math.PI / 2,
-        p0: 0,
-        p1: 0
-    };
+// Create a new, random double pendulum
+function pendulum() {
+    return [
+        Math.random() * Math.PI + Math.PI / 2,
+        Math.random() * Math.PI + Math.PI / 2,
+        0,
+        0
+    ];
 }
 
 (function() {
     let ctx = document.getElementById('pendulum').getContext('2d');
-    let s = generate();
-
-    let history = [];
-    let histi = 0;
-    for (let i = 0; i < historyLength; i++) {
-        history.push({
-            x: 0.0,
-            y: 0.0,
-            valid: false
-        });
-    }
+    let [a1, a2, p1, p2] = new pendulum();
+    let tail = new history(tailMax);
 
     let last = 0.0;
     function cb(t) {
-        const dt = Math.min(t - last, dtMax)
+        let dt = Math.min(t - last, dtMax)
+        ctx.canvas.width  = window.innerWidth;
+        ctx.canvas.height = window.innerHeight;
         if (t > 0.0) {
-            update(s, dt / 1000.0);
-            draw(ctx, s, history, histi++ % historyLength);
+            [a1, a2, p1, p2] = rk4(a1, a2, p1, p2, dt / 1000.0);
+            draw(ctx, tail, a1, a2, p1, p2);
         }
         last = t;
         window.requestAnimationFrame(cb);
     }
+
     window.requestAnimationFrame(cb);
 }());
