@@ -73,7 +73,7 @@ function history(n) {
     return h;
 }
 
-function draw(ctx, tail, a1, a2, p1, p2) {
+function draw(ctx, tail, barColor, tailColor, a1, a2, p1, p2) {
     let w = ctx.canvas.width;
     let h = ctx.canvas.height;
     let cx = w / 2;
@@ -84,23 +84,25 @@ function draw(ctx, tail, a1, a2, p1, p2) {
     let x1 = Math.sin(a2) * d + x0;
     let y1 = Math.cos(a2) * d + y0;
 
-    ctx.clearRect(0, 0, w, h);
     ctx.lineCap = 'butt';
+    ctx.strokeStyle = tailColor;
     ctx.lineWidth = d / 60;
     tail.push(x1, y1);
     let n = tail.length;
     tail.visit(function(x0, y0, x1, y1) {
         let g = n-- / tail.length;
-        ctx.strokeStyle = 'rgba(0, 0, 256, ' + Math.sqrt(g) + ')';
+        ctx.globalAlpha = g;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
         ctx.stroke();
     });
 
+    ctx.globalAlpha = 1.0;
     ctx.lineWidth = d / 30;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = 'black';
+    ctx.strokeStyle = barColor;
+    ctx.fillStyle = barColor;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x0, y0);
@@ -127,17 +129,22 @@ function pendulum() {
 
 (function() {
     let ctx = document.getElementById('pendulum').getContext('2d');
-    let [a1, a2, p1, p2] = new pendulum();
-    let tail = new history(tailMax);
+    let [a1A, a2A, p1A, p2A] = new pendulum();
+    let [a1B, a2B, p1B, p2B] = [a1A, a2A, 0.000000001, 0];
+    let tailA = new history(tailMax);
+    let tailB = new history(tailMax);
 
     let last = 0.0;
     function cb(t) {
         let dt = Math.min(t - last, dtMax)
-        ctx.canvas.width  = window.innerWidth;
-        ctx.canvas.height = window.innerHeight;
+        let w = ctx.canvas.width  = window.innerWidth;
+        let h = ctx.canvas.height = window.innerHeight;
+        ctx.clearRect(0, 0, w, h);
         if (t > 0.0) {
-            [a1, a2, p1, p2] = rk4(a1, a2, p1, p2, dt / 1000.0);
-            draw(ctx, tail, a1, a2, p1, p2);
+            [a1A, a2A, p1A, p2A] = rk4(a1A, a2A, p1A, p2A, dt / 1000.0);
+            [a1B, a2B, p1B, p2B] = rk4(a1B, a2B, p1B, p2B, dt / 1000.0);
+            draw(ctx, tailB, 'gray', 'red', a1B, a2B, p1B, p2B);
+            draw(ctx, tailA, 'black', 'blue', a1A, a2A, p1A, p2A);
         }
         last = t;
         window.requestAnimationFrame(cb);
