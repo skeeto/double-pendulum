@@ -1,9 +1,11 @@
 "use strict";
-const G = 2.0; // gravitational constant
+const G = 2.0; // gravitational acceleration
 const M = 1.0; // mass
 const L = 1.0; // length
 const dtMax = 30.0; // ms
 const tailMax = 400; // tail length
+const massColor = 'black';
+const tailColor = 'blue';
 
 function deriviative(a1, a2, p1, p2) {
     let ml2 = M * L * L;
@@ -87,20 +89,21 @@ function draw(ctx, tail, a1, a2, p1, p2) {
     ctx.clearRect(0, 0, w, h);
     ctx.lineCap = 'butt';
     ctx.lineWidth = d / 60;
-    tail.push(x1, y1);
+    tail.push((x1 - cx) / d, (y1 - cy) / d);
     let n = tail.length;
     tail.visit(function(x0, y0, x1, y1) {
-        let g = n-- / tail.length;
-        ctx.strokeStyle = 'rgba(0, 0, 256, ' + Math.sqrt(g) + ')';
+        ctx.globalAlpha = n-- / tail.length;
+        ctx.strokeStyle = tailColor;
         ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
+        ctx.moveTo(x0 * d + cx, y0 * d + cy);
+        ctx.lineTo(x1 * d + cx, y1 * d + cy);
         ctx.stroke();
     });
 
     ctx.lineWidth = d / 30;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = 'black';
+    ctx.strokeStyle = massColor;
+    ctx.globalAlpha = 1.0;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x0, y0);
@@ -118,8 +121,8 @@ function draw(ctx, tail, a1, a2, p1, p2) {
 // Create a new, random double pendulum
 function pendulum() {
     return [
-        Math.random() * Math.PI + Math.PI / 2,
-        Math.random() * Math.PI + Math.PI / 2,
+        Math.random() * Math.PI / 2 + Math.PI * 3 / 4,
+        Math.random() * Math.PI / 2 + Math.PI * 3 / 4,
         0,
         0
     ];
