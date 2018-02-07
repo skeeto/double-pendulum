@@ -55,11 +55,10 @@ function history(n) {
     let h = {
         i: 0,
         length: 0,
-        x: new Float32Array(n),
-        y: new Float32Array(n),
+        v: new Float32Array(n * 2),
         push: function(x, y) {
-            h.x[h.i] = x;
-            h.y[h.i] = y;
+            h.v[h.i * 2 + 0] = x;
+            h.v[h.i * 2 + 1] = y;
             h.i = (h.i + 1) % n;
             if (h.length < n)
                 h.length++;
@@ -68,7 +67,7 @@ function history(n) {
             for (let j = h.i + n - 2; j > h.i + n - h.length - 1; j--) {
                 let a = (j + 1) % n;
                 let b = (j + 0) % n;
-                f(h.x[a], h.y[a], h.x[b], h.y[b]);
+                f(h.v[a * 2], h.v[a * 2 + 1], h.v[b * 2], h.v[b * 2 + 1]);
             }
         }
     };
