@@ -1,11 +1,9 @@
 "use strict";
-const G = 2.0; // gravitational acceleration
+const G = 1.2; // gravitational acceleration
 const M = 1.0; // mass
 const L = 1.0; // length
 const dtMax = 30.0; // ms
 const tailMax = 400; // tail length
-const massColor = 'black';
-const tailColor = 'blue';
 
 function deriviative(a1, a2, p1, p2) {
     let ml2 = M * L * L;
@@ -74,7 +72,24 @@ function history(n) {
     return h;
 }
 
-function draw(ctx, tail, a1, a2, p1, p2) {
+// Create a new, random double pendulum
+function pendulum({tailColor = 'blue', massColor = 'black'} = {}) {
+    let tail = new history(tailMax);
+    let a1 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
+    let a2 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
+    let p1 = 0.0;
+    let p2 = 0.0;
+    return {
+        step: function(dt) {
+            [a1, a2, p1, p2] = rk4(a1, a2, p1, p2, dt);
+        },
+        draw: function(ctx) {
+            draw(ctx, tail, a1, a2, p1, p2, massColor, tailColor);
+        },
+    };
+}
+
+function draw(ctx, tail, a1, a2, p1, p2, massColor, tailColor) {
     let w = ctx.canvas.width;
     let h = ctx.canvas.height;
     let cx = w / 2;
@@ -117,20 +132,9 @@ function draw(ctx, tail, a1, a2, p1, p2) {
     ctx.fill();
 }
 
-// Create a new, random double pendulum
-function pendulum() {
-    return [
-        Math.random() * Math.PI / 2 + Math.PI * 3 / 4,
-        Math.random() * Math.PI / 2 + Math.PI * 3 / 4,
-        0,
-        0
-    ];
-}
-
 (function() {
     let ctx = document.getElementById('pendulum').getContext('2d');
-    let [a1, a2, p1, p2] = new pendulum();
-    let tail = new history(tailMax);
+    let state = new pendulum();
 
     let last = 0.0;
     function cb(t) {
@@ -138,8 +142,8 @@ function pendulum() {
         ctx.canvas.width  = window.innerWidth;
         ctx.canvas.height = window.innerHeight;
         if (t > 0.0) {
-            [a1, a2, p1, p2] = rk4(a1, a2, p1, p2, dt / 1000.0);
-            draw(ctx, tail, a1, a2, p1, p2);
+            state.step(dt / 1000.0);
+            state.draw(ctx);
         }
         last = t;
         window.requestAnimationFrame(cb);
