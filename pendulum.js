@@ -353,13 +353,16 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
 (function() {
     let state = new pendulum();
+    let params = new URL(document.location);
+    let useWebGL = params.searchParams.get("webgl") !== '0';
     let c2d = document.getElementById('c2d');
     let c3d = document.getElementById('c3d');
     let canvas;
     let mode;
     let running = true;
-    let gl = c3d.getContext('webgl');
+    let gl = useWebGL ? c3d.getContext('webgl') : null;
     let ctx = c2d.getContext('2d');
+
     if (!gl) {
         mode = '2d-only';
         canvas = c2d;
