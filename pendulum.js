@@ -8,6 +8,7 @@ const tailMax = 400; // tail length
 const barWidth = 0.04;
 const barLength = 0.23;
 const massRadius = 0.035;
+const tailThickness = 0.012;
 
 // WebGL stuff
 const quad = new Float32Array([-1, -1, +1, -1, -1, +1, +1, +1]);
@@ -61,18 +62,17 @@ precision mediump float;
 attribute vec2 point;
 attribute float alpha;
 uniform vec2 aspect;
-uniform float length;
-varying float dist;
+varying float valpha;
 void main() {
-    dist = alpha;
+    valpha = alpha;
     gl_Position = vec4(point * vec2(1, -1) / aspect, 0, 1);
 }`,
     frag: `
 precision mediump float;
 uniform vec3 color;
-varying float dist;
+varying float valpha;
 void main() {
-    gl_FragColor = vec4(color, dist);
+    gl_FragColor = vec4(color, valpha);
 }`,
 };
 
@@ -141,6 +141,68 @@ function history(n) {
         }
     };
     return h;
+}
+
+function normalize(v0, v1) {
+    let d = Math.sqrt(v0 * v0 + v1 * v1);
+    return [v0 / d, v1 / d];
+}
+
+function sub(a0, a1, b0, b1) {
+    return [a0 - b0, a1 - b1];
+}
+
+function add(a0, a1, b0, b1) {
+    return [a0 + b0, a1 + b1];
+}
+
+function dot(ax, ay, bx, by) {
+    return ax * bx + ay * by;
+}
+
+/* Convert tail line into a triangle strip.
+ * https://forum.libcinder.org/topic/smooth-thick-lines-using-geometry-shader
+ */
+function polyline(hist, poly) {
+    let i = 0;
+    let x0, y0;
+    let xf, yf;
+    hist.visit(function(x1, y1, x2, y2) {
+        if (i++ === 0) {
+            let [lx, ly] = sub(x2, y2, x1, y1);
+            let [nx, ny] = normalize(-ly, lx);
+            poly[0] = x1 + tailThickness * nx;
+            poly[1] = y1 + tailThickness * ny;
+            poly[2] = x1 - tailThickness * nx;
+            poly[3] = y1 - tailThickness * ny;
+        } else {
+            let [ax, ay] = sub(x1, y1, x0, y0);
+            [ax, ay] = normalize(ax, ay);
+            let [bx, by] = sub(x2, y2, x1, y1);
+            [bx, by] = normalize(bx, by);
+            let [tx, ty] = add(ax, ay, bx, by);
+            [tx, ty] = normalize(tx, ty);
+            let [mx, my] = [-ty, tx];
+            let [lx, ly] = sub(x1, y1, x0, y0);
+            let [nx, ny] = normalize(-ly, lx);
+            let len = tailThickness / dot(mx, my, nx, ny);
+            poly[i * 4 + 0] = x1 + mx * len;
+            poly[i * 4 + 1] = y1 + my * len;
+            poly[i * 4 + 2] = x1 - mx * len;
+            poly[i * 4 + 3] = y1 - my * len;
+        }
+        x0 = x1;
+        y0 = y1;
+        xf = x2;
+        yf = y2;
+    });
+    let [lx, ly] = sub(xf, yf, x0, y0);
+    let [nx, ny] = normalize(-ly, lx);
+    i += 2;
+    poly[i * 4 - 4] = xf + tailThickness * nx;
+    poly[i * 4 - 3] = yf + tailThickness * ny;
+    poly[i * 4 - 2] = xf - tailThickness * nx;
+    poly[i * 4 - 1] = yf - tailThickness * ny;
 }
 
 function compile(gl, vert, frag) {
@@ -216,22 +278,17 @@ function draw3dInit(gl, tail) {
     gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
 
     webgl.tailb = gl.createBuffer();
+    webgl.tailpoly = new Float32Array(tail.v.length * 2);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
-    gl.bufferData(gl.ARRAY_BUFFER, tail.v, gl.STREAM_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, webgl.tailpoly.length * 4, gl.STREAM_DRAW);
 
-    webgl.taile = gl.createBuffer();
-    webgl.taila = gl.createBuffer();
-    let n = tail.v.length / 2;
-    let index = new Uint16Array(n * 2);
-    let alpha = new Float32Array(n * 2);
-    for (let i = 0; i < n * 2; i++) {
-        let fade = (i % n) / (n - 1);
-        index[i] = n - 1 - (i % n);
-        alpha[i] = Math.sqrt(fade);
+    webgl.alpha = gl.createBuffer();
+    let alpha = new Float32Array(tail.v.length);
+    for (let i = 0; i < alpha.length; i++) {
+        let v = (i + 1) / alpha.length;
+        alpha[i] = 1 - v * v;
     }
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, webgl.taile);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.taila);
+    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
     gl.bufferData(gl.ARRAY_BUFFER, alpha, gl.STATIC_DRAW);
 
     webgl.mass = compile(gl, massShader.vert, massShader.frag);
@@ -258,20 +315,17 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
 
     let tail = webgl.tail;
     gl.useProgram(tail.p);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, webgl.taile);
+    polyline(hist, webgl.tailpoly);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, hist.v);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, webgl.tailpoly);
     gl.vertexAttribPointer(tail.a.point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(tail.a.point);
-    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.taila);
-    gl.vertexAttribPointer(tail.a.alpha, 1, gl.FLOAT, false, 0,
-        (hist.v.length / 2 - hist.i) * 4);
+    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
+    gl.vertexAttribPointer(tail.a.alpha, 1, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(tail.a.alpha);
-    gl.uniform3fv(tail.u.color, tailColor);
     gl.uniform2f(tail.u.aspect, ax / d, ay / d);
-    gl.uniform1f(tail.u.length, hist.length);
-    gl.drawElements(gl.LINE_STRIP, hist.length, gl.UNSIGNED_SHORT,
-        hist.v.length - hist.i * 2);
+    gl.uniform3fv(tail.u.color, tailColor);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, hist.length * 2);
 
     let mass = webgl.mass;
     gl.useProgram(mass.p);
@@ -321,7 +375,7 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
     ctx.clearRect(0, 0, w, h);
     ctx.lineCap = 'butt';
-    ctx.lineWidth = d / 60;
+    ctx.lineWidth = z * tailThickness / 2;
     ctx.strokeStyle = color2style(tailColor);
     let n = tail.length;
     tail.visit(function(x0, y0, x1, y1) {
