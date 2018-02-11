@@ -181,7 +181,7 @@ function compile(gl, vert, frag) {
 };
 
 // Create a new, random double pendulum
-function pendulum({tailColor = 'blue', massColor = 'black'} = {}) {
+function pendulum({tailColor = [0, 0, 1], massColor = [0, 0, 0]} = {}) {
     let tail = new history(tailMax);
     let a1 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
     let a2 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
@@ -200,7 +200,7 @@ function pendulum({tailColor = 'blue', massColor = 'black'} = {}) {
         draw3d: function(gl) {
             if (!webgl)
                 webgl = draw3dInit(gl, tail);
-            draw3d(gl, webgl, tail, a1, a2);
+            draw3d(gl, webgl, tail, a1, a2, massColor, tailColor);
         },
     };
 }
@@ -241,7 +241,7 @@ function draw3dInit(gl, tail) {
     return webgl;
 }
 
-function draw3d(gl, webgl, hist, a1, a2) {
+function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     let w = gl.canvas.width;
     let h = gl.canvas.height;
     let z = Math.min(w, h);
@@ -267,7 +267,7 @@ function draw3d(gl, webgl, hist, a1, a2) {
     gl.vertexAttribPointer(tail.a.alpha, 1, gl.FLOAT, false, 0,
         (hist.v.length / 2 - hist.i) * 4);
     gl.enableVertexAttribArray(tail.a.alpha);
-    gl.uniform3f(tail.u.color, 0, 0, 1);
+    gl.uniform3fv(tail.u.color, tailColor);
     gl.uniform2f(tail.u.aspect, ax / d, ay / d);
     gl.uniform1f(tail.u.length, hist.length);
     gl.drawElements(gl.LINE_STRIP, hist.length, gl.UNSIGNED_SHORT,
@@ -278,7 +278,7 @@ function draw3d(gl, webgl, hist, a1, a2) {
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.quad);
     gl.vertexAttribPointer(mass.a.point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(mass.a.point);
-    gl.uniform3f(mass.u.color, 0, 0, 0);
+    gl.uniform3fv(mass.u.color, massColor);
     gl.uniform2f(mass.u.aspect, ax, ay);
     gl.uniform2f(mass.u.center, x0, y0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -289,7 +289,7 @@ function draw3d(gl, webgl, hist, a1, a2) {
     gl.useProgram(bar.p);
     gl.vertexAttribPointer(bar.a.point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(bar.a.point);
-    gl.uniform3f(bar.u.color, 0, 0, 0);
+    gl.uniform3fv(bar.u.color, massColor);
     gl.uniform2f(bar.u.aspect, ax, ay);
     gl.uniform2f(bar.u.attach, 0, 0);
     gl.uniform1f(bar.u.angle, a1 - Math.PI / 2);
@@ -298,6 +298,13 @@ function draw3d(gl, webgl, hist, a1, a2) {
     gl.uniform1f(bar.u.angle, a2 - Math.PI / 2);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
+
+function color2style(color) {
+    let r = Math.round(255 * color[0]);
+    let g = Math.round(255 * color[1]);
+    let b = Math.round(255 * color[2]);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
 
 function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let w = ctx.canvas.width;
@@ -310,14 +317,15 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let y0 = Math.cos(a1) * d + cy;
     let x1 = Math.sin(a2) * d + x0;
     let y1 = Math.cos(a2) * d + y0;
+    let massStyle = color2style(massColor);
 
     ctx.clearRect(0, 0, w, h);
     ctx.lineCap = 'butt';
     ctx.lineWidth = d / 60;
+    ctx.strokeStyle = color2style(tailColor);
     let n = tail.length;
     tail.visit(function(x0, y0, x1, y1) {
         ctx.globalAlpha = n-- / tail.length;
-        ctx.strokeStyle = tailColor;
         ctx.beginPath();
         ctx.moveTo(x0 * d + cx, y0 * d + cy);
         ctx.lineTo(x1 * d + cx, y1 * d + cy);
@@ -326,7 +334,8 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
     ctx.lineWidth = z * barWidth / 4;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = massColor;
+    ctx.strokeStyle = massStyle;
+    ctx.fillStyle = massStyle;
     ctx.globalAlpha = 1.0;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
