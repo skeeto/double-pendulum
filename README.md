@@ -3,6 +3,10 @@
 This is a JavaScript animation of a [double pendulum][dp0] chaotic
 system.
 
+WebGL rendering is used by default, falling back to plain old canvas
+rendering if unavailable. Press <kbd>m</kbd> to toggle between WebGL and
+Canvas rendering. Press <kbd>SPACE</kbd> to pause the simulation.
+
 See also:
 
 * [Lorenz System Demo][lz]
