@@ -15,64 +15,61 @@ const quad = new Float32Array([-1, -1, +1, -1, -1, +1, +1, +1]);
 
 const massShader = {
     vert: `
-precision mediump float;
-attribute vec2 point;
-uniform vec2 center;
-uniform vec2 aspect;
-varying vec2 vpoint;
+attribute vec2 a_point;
+uniform vec2 u_center;
+uniform vec2 u_aspect;
+varying vec2 v_point;
 void main() {
-    vpoint = point;
-    gl_Position = vec4(point * ${massRadius} / aspect + center, 0, 1);
+    v_point = a_point;
+    gl_Position = vec4(a_point * ${massRadius} / u_aspect + u_center, 0, 1);
 }`,
     frag: `
-precision mediump float;
-uniform vec2 aspect;
-uniform vec3 color;
-varying vec2 vpoint;
+uniform vec2 u_aspect;
+uniform vec3 u_color;
+varying vec2 v_point;
 void main() {
-    float dist = distance(vec2(0, 0), vpoint);
+    float dist = distance(vec2(0, 0), v_point);
     float v = smoothstep(1.0, 0.9, dist);
-    gl_FragColor = vec4(color, v);
+    gl_FragColor = vec4(u_color, v);
 }`,
 };
 
 const barShader = {
     vert: `
-precision mediump float;
-attribute vec2 point;
-uniform float angle;
-uniform vec2 attach;
-uniform vec2 aspect;
+attribute vec2 a_point;
+uniform float  u_angle;
+uniform vec2   u_attach;
+uniform vec2   u_aspect;
 void main() {
-    mat2 rotate = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
-    vec2 pos = rotate * (point * vec2(1, ${barWidth}) + vec2(1, 0));
-    gl_Position = vec4((pos * ${barLength} / aspect + attach), 0, 1);
+    mat2 rotate = mat2(+cos(u_angle), +sin(u_angle),
+                       -sin(u_angle), +cos(u_angle));
+    vec2 pos = rotate * (a_point * vec2(1, ${barWidth}) + vec2(1, 0));
+    gl_Position = vec4((pos * ${barLength} / u_aspect + u_attach), 0, 1);
 }`,
     frag: `
-precision mediump float;
-uniform vec3 color;
+uniform vec3 u_color;
 void main() {
-    gl_FragColor = vec4(color, 1);
+    gl_FragColor = vec4(u_color, 1);
 }`,
 };
 
 const tailShader = {
     vert: `
-precision mediump float;
-attribute vec2 point;
-attribute float alpha;
-uniform vec2 aspect;
-varying float valpha;
+attribute vec2  a_point;
+attribute float a_alpha;
+uniform vec2    u_aspect;
+varying float   v_alpha;
 void main() {
-    valpha = alpha;
-    gl_Position = vec4(point * vec2(1, -1) / aspect, 0, 1);
+    v_alpha = a_alpha;
+    gl_Position = vec4(a_point * vec2(1, -1) / u_aspect, 0, 1);
 }`,
     frag: `
-precision mediump float;
-uniform vec3 color;
-varying float valpha;
+uniform vec3  u_color;
+uniform float u_cutoff;
+varying float v_alpha;
 void main() {
-    gl_FragColor = vec4(color, valpha);
+    float icutoff = 1.0 - u_cutoff;
+    gl_FragColor = vec4(u_color, max(0.0, v_alpha - u_cutoff) / icutoff);
 }`,
 };
 
@@ -207,9 +204,9 @@ function polyline(hist, poly) {
 
 function compile(gl, vert, frag) {
     let v = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(v, vert);
+    gl.shaderSource(v, 'precision mediump float;' + vert);
     let f = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(f, frag);
+    gl.shaderSource(f, 'precision mediump float;' + frag);
     gl.compileShader(v);
     if (!gl.getShaderParameter(v, gl.COMPILE_STATUS))
         throw new Error(gl.getShaderInfoLog(v));
@@ -225,19 +222,17 @@ function compile(gl, vert, frag) {
     gl.deleteShader(v);
     gl.deleteShader(f);
     var result = {
-        p: p,
-        a: {},
-        u: {}
+        program: p
     };
     let nattrib = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
     for (let a = 0; a < nattrib; a++) {
         let name = gl.getActiveAttrib(p, a).name;
-        result.a[name] = gl.getAttribLocation(p, name);
+        result[name] = gl.getAttribLocation(p, name);
     }
     let nuniform = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let u = 0; u < nuniform; u++) {
         let name = gl.getActiveUniform(p, u).name;
-        result.u[name] = gl.getUniformLocation(p, name);
+        result[name] = gl.getUniformLocation(p, name);
     }
     return result;
 };
@@ -286,7 +281,7 @@ function draw3dInit(gl, tail) {
     let alpha = new Float32Array(tail.v.length);
     for (let i = 0; i < alpha.length; i++) {
         let v = (i + 1) / alpha.length;
-        alpha[i] = 1 - v * v * v;
+        alpha[i] = 1 - v;
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
     gl.bufferData(gl.ARRAY_BUFFER, alpha, gl.STATIC_DRAW);
@@ -314,42 +309,43 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     let tail = webgl.tail;
-    gl.useProgram(tail.p);
+    gl.useProgram(tail.program);
     polyline(hist, webgl.tailpoly);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, webgl.tailpoly);
-    gl.vertexAttribPointer(tail.a.point, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(tail.a.point);
+    gl.vertexAttribPointer(tail.a_point, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(tail.a_point);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
-    gl.vertexAttribPointer(tail.a.alpha, 1, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(tail.a.alpha);
-    gl.uniform2f(tail.u.aspect, ax / d, ay / d);
-    gl.uniform3fv(tail.u.color, tailColor);
+    gl.vertexAttribPointer(tail.a_alpha, 1, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(tail.a_alpha);
+    gl.uniform2f(tail.u_aspect, ax / d, ay / d);
+    gl.uniform3fv(tail.u_color, tailColor);
+    gl.uniform1f(tail.u_cutoff, 1 - hist.length * 2 / hist.v.length);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, hist.length * 2);
 
     let mass = webgl.mass;
-    gl.useProgram(mass.p);
+    gl.useProgram(mass.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.quad);
-    gl.vertexAttribPointer(mass.a.point, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(mass.a.point);
-    gl.uniform3fv(mass.u.color, massColor);
-    gl.uniform2f(mass.u.aspect, ax, ay);
-    gl.uniform2f(mass.u.center, x0, y0);
+    gl.vertexAttribPointer(mass.a_point, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(mass.a_point);
+    gl.uniform3fv(mass.u_color, massColor);
+    gl.uniform2f(mass.u_aspect, ax, ay);
+    gl.uniform2f(mass.u_center, x0, y0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.uniform2f(mass.u.center, x1, y1);
+    gl.uniform2f(mass.u_center, x1, y1);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     let bar = webgl.bar;
-    gl.useProgram(bar.p);
-    gl.vertexAttribPointer(bar.a.point, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(bar.a.point);
-    gl.uniform3fv(bar.u.color, massColor);
-    gl.uniform2f(bar.u.aspect, ax, ay);
-    gl.uniform2f(bar.u.attach, 0, 0);
-    gl.uniform1f(bar.u.angle, a1 - Math.PI / 2);
+    gl.useProgram(bar.program);
+    gl.vertexAttribPointer(bar.a_point, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(bar.a_point);
+    gl.uniform3fv(bar.u_color, massColor);
+    gl.uniform2f(bar.u_aspect, ax, ay);
+    gl.uniform2f(bar.u_attach, 0, 0);
+    gl.uniform1f(bar.u_angle, a1 - Math.PI / 2);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.uniform2f(bar.u.attach, x0, y0);
-    gl.uniform1f(bar.u.angle, a2 - Math.PI / 2);
+    gl.uniform2f(bar.u_attach, x0, y0);
+    gl.uniform1f(bar.u_angle, a2 - Math.PI / 2);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
 
