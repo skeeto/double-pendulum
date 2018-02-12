@@ -286,7 +286,7 @@ function draw3dInit(gl, tail) {
     let alpha = new Float32Array(tail.v.length);
     for (let i = 0; i < alpha.length; i++) {
         let v = (i + 1) / alpha.length;
-        alpha[i] = 1 - v * v;
+        alpha[i] = 1 - v * v * v;
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
     gl.bufferData(gl.ARRAY_BUFFER, alpha, gl.STATIC_DRAW);
