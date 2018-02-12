@@ -373,7 +373,8 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let y1 = Math.cos(a2) * d + y0;
     let massStyle = color2style(massColor);
 
-    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, w, h);
     ctx.lineCap = 'butt';
     ctx.lineWidth = z * tailThickness / 2;
     ctx.strokeStyle = color2style(tailColor);
