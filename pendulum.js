@@ -164,11 +164,11 @@ function dot(ax, ay, bx, by) {
  * https://forum.libcinder.org/topic/smooth-thick-lines-using-geometry-shader
  */
 function polyline(hist, poly) {
-    let i = 0;
+    let i = -1;
     let x0, y0;
     let xf, yf;
     hist.visit(function(x1, y1, x2, y2) {
-        if (i++ === 0) {
+        if (++i === 0) {
             let [lx, ly] = sub(x2, y2, x1, y1);
             let [nx, ny] = normalize(-ly, lx);
             poly[0] = x1 + tailThickness * nx;
@@ -198,11 +198,11 @@ function polyline(hist, poly) {
     });
     let [lx, ly] = sub(xf, yf, x0, y0);
     let [nx, ny] = normalize(-ly, lx);
-    i += 2;
-    poly[i * 4 - 4] = xf + tailThickness * nx;
-    poly[i * 4 - 3] = yf + tailThickness * ny;
-    poly[i * 4 - 2] = xf - tailThickness * nx;
-    poly[i * 4 - 1] = yf - tailThickness * ny;
+    i++;
+    poly[i * 4 + 0] = xf + tailThickness * nx;
+    poly[i * 4 + 1] = yf + tailThickness * ny;
+    poly[i * 4 + 2] = xf - tailThickness * nx;
+    poly[i * 4 + 3] = yf - tailThickness * ny;
 }
 
 function compile(gl, vert, frag) {
