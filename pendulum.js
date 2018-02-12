@@ -16,9 +16,9 @@ const quad = new Float32Array([-1, -1, +1, -1, -1, +1, +1, +1]);
 const massShader = {
     vert: `
 attribute vec2 a_point;
-uniform vec2 u_center;
-uniform vec2 u_aspect;
-varying vec2 v_point;
+uniform vec2   u_center;
+uniform vec2   u_aspect;
+varying vec2   v_point;
 void main() {
     v_point = a_point;
     gl_Position = vec4(a_point * ${massRadius} / u_aspect + u_center, 0, 1);
