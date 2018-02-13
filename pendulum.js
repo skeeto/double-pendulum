@@ -161,6 +161,7 @@ function dot(ax, ay, bx, by) {
  * https://forum.libcinder.org/topic/smooth-thick-lines-using-geometry-shader
  */
 function polyline(hist, poly) {
+    const w = tailThickness;
     let i = -1;
     let x0, y0;
     let xf, yf;
@@ -168,10 +169,10 @@ function polyline(hist, poly) {
         if (++i === 0) {
             let [lx, ly] = sub(x2, y2, x1, y1);
             let [nx, ny] = normalize(-ly, lx);
-            poly[0] = x1 + tailThickness * nx;
-            poly[1] = y1 + tailThickness * ny;
-            poly[2] = x1 - tailThickness * nx;
-            poly[3] = y1 - tailThickness * ny;
+            poly[0] = x1 + w * nx;
+            poly[1] = y1 + w * ny;
+            poly[2] = x1 - w * nx;
+            poly[3] = y1 - w * ny;
         } else {
             let [ax, ay] = sub(x1, y1, x0, y0);
             [ax, ay] = normalize(ax, ay);
@@ -182,7 +183,7 @@ function polyline(hist, poly) {
             let [mx, my] = [-ty, tx];
             let [lx, ly] = sub(x1, y1, x0, y0);
             let [nx, ny] = normalize(-ly, lx);
-            let len = tailThickness / dot(mx, my, nx, ny);
+            let len = Math.min(w, w / dot(mx, my, nx, ny));
             poly[i * 4 + 0] = x1 + mx * len;
             poly[i * 4 + 1] = y1 + my * len;
             poly[i * 4 + 2] = x1 - mx * len;
@@ -196,10 +197,10 @@ function polyline(hist, poly) {
     let [lx, ly] = sub(xf, yf, x0, y0);
     let [nx, ny] = normalize(-ly, lx);
     i++;
-    poly[i * 4 + 0] = xf + tailThickness * nx;
-    poly[i * 4 + 1] = yf + tailThickness * ny;
-    poly[i * 4 + 2] = xf - tailThickness * nx;
-    poly[i * 4 + 3] = yf - tailThickness * ny;
+    poly[i * 4 + 0] = xf + w * nx;
+    poly[i * 4 + 1] = yf + w * ny;
+    poly[i * 4 + 2] = xf - w * nx;
+    poly[i * 4 + 3] = yf - w * ny;
 }
 
 function compile(gl, vert, frag) {
