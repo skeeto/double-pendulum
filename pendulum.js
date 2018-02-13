@@ -16,9 +16,9 @@ const quad = new Float32Array([-1, -1, +1, -1, -1, +1, +1, +1]);
 const massShader = {
     vert: `
 attribute vec2 a_point;
-uniform vec2   u_center;
-uniform vec2   u_aspect;
-varying vec2   v_point;
+uniform   vec2 u_center;
+uniform   vec2 u_aspect;
+varying   vec2 v_point;
 void main() {
     v_point = a_point;
     gl_Position = vec4(a_point * ${massRadius} / u_aspect + u_center, 0, 1);
@@ -36,10 +36,10 @@ void main() {
 
 const barShader = {
     vert: `
-attribute vec2 a_point;
-uniform float  u_angle;
-uniform vec2   u_attach;
-uniform vec2   u_aspect;
+attribute vec2  a_point;
+uniform   float u_angle;
+uniform   vec2  u_attach;
+uniform   vec2  u_aspect;
 void main() {
     mat2 rotate = mat2(+cos(u_angle), +sin(u_angle),
                        -sin(u_angle), +cos(u_angle));
@@ -57,8 +57,8 @@ const tailShader = {
     vert: `
 attribute vec2  a_point;
 attribute float a_alpha;
-uniform vec2    u_aspect;
-varying float   v_alpha;
+uniform   vec2  u_aspect;
+varying   float v_alpha;
 void main() {
     v_alpha = a_alpha;
     gl_Position = vec4(a_point * vec2(1, -1) / u_aspect, 0, 1);
