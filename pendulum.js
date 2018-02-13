@@ -238,12 +238,21 @@ function compile(gl, vert, frag) {
 };
 
 // Create a new, random double pendulum
-function pendulum({tailColor = [0, 0, 1], massColor = [0, 0, 0]} = {}) {
+function pendulum({
+    tailColor = [0, 0, 1],
+    massColor = [0, 0, 0],
+    init = null
+} = {}) {
     let tail = new history(tailMax);
-    let a1 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
-    let a2 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
-    let p1 = 0.0;
-    let p2 = 0.0;
+    let a1, a2, p1, p2;
+    if (init) {
+        [a1, a2, p1, p2] = init;
+    } else {
+        a1 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
+        a2 = Math.random() * Math.PI / 2 + Math.PI * 3 / 4;
+        p1 = 0.0;
+        p2 = 0.0;
+    }
     let webgl = null;
 
     return {
@@ -258,6 +267,13 @@ function pendulum({tailColor = [0, 0, 1], massColor = [0, 0, 0]} = {}) {
             if (!webgl)
                 webgl = draw3dInit(gl, tail);
             draw3d(gl, webgl, tail, a1, a2, massColor, tailColor);
+        },
+        /* Create a slightly imperfect clone */
+        clone: function(conf) {
+            if (!conf)
+                conf = {};
+            conf.init = [a1, a2, p1, p2 * (1 - Math.random() * 1e-10)];
+            return new pendulum(conf);
         },
     };
 }
@@ -293,6 +309,11 @@ function draw3dInit(gl, tail) {
     return webgl;
 }
 
+function clear3d(gl) {
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
 function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     let w = gl.canvas.width;
     let h = gl.canvas.height;
@@ -304,9 +325,6 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     let y0 = -Math.cos(a1) * d / ay;
     let x1 = +Math.sin(a2) * d / ax + x0;
     let y1 = -Math.cos(a2) * d / ay + y0;
-
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.clear(gl.COLOR_BUFFER_BIT);
 
     let tail = webgl.tail;
     gl.useProgram(tail.program);
@@ -356,6 +374,11 @@ function color2style(color) {
     return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
+function clear2d(ctx) {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
 function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let w = ctx.canvas.width;
     let h = ctx.canvas.height;
@@ -369,8 +392,6 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let y1 = Math.cos(a2) * d + y0;
     let massStyle = color2style(massColor);
 
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, w, h);
     ctx.lineCap = 'butt';
     ctx.lineWidth = z * tailThickness / 2;
     ctx.strokeStyle = color2style(tailColor);
@@ -403,7 +424,7 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 }
 
 (function() {
-    let state = new pendulum();
+    let state = [new pendulum()];
     let params = new URL(document.location);
     let useWebGL = params.searchParams.get("webgl") !== '0';
     let c2d = document.getElementById('c2d');
@@ -443,10 +464,24 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
     window.addEventListener('keypress', function(e) {
         switch (e.charCode) {
-            case 32:
+            case 32: // SPACE
                 running = !running;
                 break;
-            case 109:
+            case 97: // a
+                let color = [Math.random(), Math.random(), Math.random()];
+                state.push(new pendulum({tailColor: color}));
+                break;
+            case 99:
+                if (state.length) {
+                    let color = [Math.random(), Math.random(), Math.random()];
+                    state.push(state[0].clone({tailColor: color}));
+                }
+                break;
+            case 100: // d
+                if (state.length)
+                    state.pop();
+                break;
+            case 109: // m
                 toggleMode();
                 break;
         }
@@ -463,11 +498,17 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
             canvas.height = wh;
         }
         if (running)
-            state.step(dt / 1000.0);
-        if (mode === '3d')
-            state.draw3d(gl);
-        else
-            state.draw2d(ctx);
+            for (let i = 0; i < state.length; i++)
+                state[i].step(dt / 1000.0);
+        if (mode === '3d') {
+            clear3d(gl);
+            for (let i = 0; i < state.length; i++)
+                state[i].draw3d(gl);
+        } else {
+            clear2d(ctx);
+            for (let i = 0; i < state.length; i++)
+                state[i].draw2d(ctx);
+        }
         last = t;
         window.requestAnimationFrame(cb);
     }

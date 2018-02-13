@@ -1,11 +1,16 @@
 # Double Pendulum Animation
 
-This is a JavaScript animation of a [double pendulum][dp0] chaotic
-system.
+This is a JavaScript animation of a [double pendulum][dp0] chaotic system.
+WebGL rendering is used by default, falling back to plain old canvas rendering
+if unavailable.
 
-WebGL rendering is used by default, falling back to plain old canvas
-rendering if unavailable. Press <kbd>m</kbd> to toggle between WebGL and
-Canvas rendering. Press <kbd>SPACE</kbd> to pause the simulation.
+## Key bindings:
+
+* <kbd>a</kbd>: add a new random pendulum
+* <kbd>c</kbd>: imperfectly clone an existing pendulum
+* <kbd>d</kbd>: delete the most recently added pendulum
+* <kbd>m</kbd>: toggle between WebGL and Canvas rendering
+* <kbd>SPACE</kbd>: pause the simulation.
 
 See also:
 
