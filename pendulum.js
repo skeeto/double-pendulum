@@ -273,7 +273,12 @@ function pendulum({
         clone: function(conf) {
             if (!conf)
                 conf = {};
-            conf.init = [a1, a2, p1, p2 * (1 - Math.random() * 1e-10)];
+            let cp2;
+            if (p2 === 0.0)
+                cp2 = Math.random() * 1e-12;
+            else
+                cp2 = p2 * (1 - Math.random() * 1e-10);
+            conf.init = [a1, a2, p1, cp2];
             return new pendulum(conf);
         },
     };
