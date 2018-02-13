@@ -331,11 +331,11 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     polyline(hist, webgl.tailpoly);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, webgl.tailpoly);
-    gl.vertexAttribPointer(tail.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(tail.a_point);
+    gl.vertexAttribPointer(tail.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
-    gl.vertexAttribPointer(tail.a_alpha, 1, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(tail.a_alpha);
+    gl.vertexAttribPointer(tail.a_alpha, 1, gl.FLOAT, false, 0, 0);
     gl.uniform2f(tail.u_aspect, ax / d, ay / d);
     gl.uniform3fv(tail.u_color, tailColor);
     gl.uniform1f(tail.u_cutoff, 1 - hist.length * 2 / hist.v.length);
@@ -344,8 +344,8 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
     let mass = webgl.mass;
     gl.useProgram(mass.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.quad);
-    gl.vertexAttribPointer(mass.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(mass.a_point);
+    gl.vertexAttribPointer(mass.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.uniform3fv(mass.u_color, massColor);
     gl.uniform2f(mass.u_aspect, ax, ay);
     gl.uniform2f(mass.u_center, x0, y0);
@@ -355,8 +355,8 @@ function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
 
     let bar = webgl.bar;
     gl.useProgram(bar.program);
-    gl.vertexAttribPointer(bar.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(bar.a_point);
+    gl.vertexAttribPointer(bar.a_point, 2, gl.FLOAT, false, 0, 0);
     gl.uniform3fv(bar.u_color, massColor);
     gl.uniform2f(bar.u_aspect, ax, ay);
     gl.uniform2f(bar.u_attach, 0, 0);
@@ -487,7 +487,7 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
     let last = 0.0;
     function cb(t) {
-        let dt = Math.min(t - last, dtMax)
+        let dt = Math.min(t - last, dtMax);
         let ww = window.innerWidth;
         let wh = window.innerHeight;
         if (canvas.width != ww || canvas.height != wh) {
