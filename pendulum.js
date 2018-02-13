@@ -406,15 +406,13 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
 
     ctx.lineWidth = z * barWidth / 4;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'bevel';
     ctx.strokeStyle = massStyle;
     ctx.fillStyle = massStyle;
     ctx.globalAlpha = 1.0;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x0, y0);
-    ctx.stroke();
-    ctx.beginPath(); // draw separately to avoid common canvas bug
-    ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     ctx.stroke();
     ctx.beginPath();
