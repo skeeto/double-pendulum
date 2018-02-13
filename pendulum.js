@@ -291,7 +291,7 @@ function draw3dInit(gl, tail) {
     webgl.tailb = gl.createBuffer();
     webgl.tailpoly = new Float32Array(tail.v.length * 2);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
-    gl.bufferData(gl.ARRAY_BUFFER, webgl.tailpoly.length * 4, gl.STREAM_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, webgl.tailpoly.byteLength, gl.STREAM_DRAW);
 
     webgl.alpha = gl.createBuffer();
     let alpha = new Float32Array(tail.v.length);
