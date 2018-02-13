@@ -254,20 +254,27 @@ function pendulum({
         p1 = 0.0;
         p2 = 0.0;
     }
-    let webgl = null;
 
     return {
+        tailColor: tailColor,
+        massColor: massColor,
+        tail: tail,
+        state: function() {
+            return [a1, a2, p1, p2];
+        },
+        positions: function() {
+            let x1 = +Math.sin(a1);
+            let y1 = -Math.cos(a1);
+            let x2 = +Math.sin(a2) + x1;
+            let y2 = -Math.cos(a2) + y1;
+            return [x1, y1, x2, y2];
+        },
         step: function(dt) {
             [a1, a2, p1, p2] = rk4(a1, a2, p1, p2, dt);
             tail.push(a1, a2);
         },
         draw2d: function(ctx) {
             draw2d(ctx, tail, a1, a2, massColor, tailColor);
-        },
-        draw3d: function(gl) {
-            if (!webgl)
-                webgl = draw3dInit(gl, tail);
-            draw3d(gl, webgl, tail, a1, a2, massColor, tailColor);
         },
         /* Create a slightly imperfect clone */
         clone: function(conf) {
@@ -284,7 +291,83 @@ function pendulum({
     };
 }
 
-function draw3dInit(gl, tail) {
+function clear3d(gl) {
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
+function draw3d(gl, webgl, pendulums) {
+    let w = gl.canvas.width;
+    let h = gl.canvas.height;
+    let z = Math.min(w, h);
+    let ax = w / z;
+    let ay = h / z;
+    let d = barLength * 2;
+
+    let tail = webgl.tail;
+    gl.useProgram(tail.program);
+    gl.uniform2f(tail.u_aspect, ax / d, ay / d);
+    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
+    gl.enableVertexAttribArray(tail.a_alpha);
+    gl.vertexAttribPointer(tail.a_alpha, 1, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
+    gl.enableVertexAttribArray(tail.a_point);
+    gl.vertexAttribPointer(tail.a_point, 2, gl.FLOAT, false, 0, 0);
+    for (let i = 0; i < pendulums.length; i++) {
+        let p = pendulums[i];
+        if (p.tail.length) {
+            polyline(p.tail, webgl.tailpoly);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, webgl.tailpoly);
+            gl.uniform3fv(tail.u_color, p.tailColor);
+            let cutoff = 1 - p.tail.length * 2 / p.tail.v.length;
+            gl.uniform1f(tail.u_cutoff, cutoff);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, p.tail.length * 2);
+        }
+    }
+
+    let mass = webgl.mass;
+    gl.useProgram(mass.program);
+    gl.uniform2f(mass.u_aspect, ax, ay);
+    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.quad);
+    gl.enableVertexAttribArray(mass.a_point);
+    gl.vertexAttribPointer(mass.a_point, 2, gl.FLOAT, false, 0, 0);
+    for (let i = 0; i < pendulums.length; i++) {
+        let p = pendulums[i];
+        let [x1, y1, x2, y2] = p.positions();
+        x1 *= d / ax;
+        y1 *= d / ay;
+        x2 *= d / ax;
+        y2 *= d / ay;
+        gl.uniform3fv(mass.u_color, p.massColor);
+        gl.uniform2f(mass.u_center, x1, y1);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.uniform2f(mass.u_center, x2, y2);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    let bar = webgl.bar;
+    gl.useProgram(bar.program);
+    gl.uniform2f(bar.u_aspect, ax, ay);
+    gl.enableVertexAttribArray(bar.a_point);
+    /* Quad buffer still bound from previous draws */
+    gl.vertexAttribPointer(bar.a_point, 2, gl.FLOAT, false, 0, 0);
+    for (let i = 0; i < pendulums.length; i++) {
+        let p = pendulums[i];
+        let [x1, y1, x2, y2] = p.positions();
+        let [a1, a2, p1, p2] = p.state();
+        x1 *= d / ax;
+        y1 *= d / ay;
+        gl.uniform3fv(bar.u_color, p.massColor);
+        gl.uniform2f(bar.u_attach, 0, 0);
+        gl.uniform1f(bar.u_angle, a1 - Math.PI / 2);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.uniform2f(bar.u_attach, x1, y1);
+        gl.uniform1f(bar.u_angle, a2 - Math.PI / 2);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+};
+
+function glRenderer(gl, tailLen) {
     let webgl = {};
     gl.clearColor(1, 1, 1, 1);
     gl.enable(gl.BLEND);
@@ -295,12 +378,12 @@ function draw3dInit(gl, tail) {
     gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
 
     webgl.tailb = gl.createBuffer();
-    webgl.tailpoly = new Float32Array(tail.v.length * 2);
+    webgl.tailpoly = new Float32Array(tailLen * 4);
     gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
     gl.bufferData(gl.ARRAY_BUFFER, webgl.tailpoly.byteLength, gl.STREAM_DRAW);
 
     webgl.alpha = gl.createBuffer();
-    let alpha = new Float32Array(tail.v.length);
+    let alpha = new Float32Array(tailLen * 2);
     for (let i = 0; i < alpha.length; i++) {
         let v = (i + 1) / alpha.length;
         alpha[i] = 1 - v;
@@ -312,66 +395,12 @@ function draw3dInit(gl, tail) {
     webgl.bar  = compile(gl, barShader.vert, barShader.frag);
     webgl.tail = compile(gl, tailShader.vert, tailShader.frag);
 
+    webgl.renderAll = function(pendulums) {
+        clear3d(gl);
+        draw3d(gl, webgl, pendulums);
+    };
     return webgl;
 }
-
-function clear3d(gl) {
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-}
-
-function draw3d(gl, webgl, hist, a1, a2, massColor, tailColor) {
-    let w = gl.canvas.width;
-    let h = gl.canvas.height;
-    let z = Math.min(w, h);
-    let ax = w / z;
-    let ay = h / z;
-    let d = barLength * 2;
-    let x0 = +Math.sin(a1) * d / ax;
-    let y0 = -Math.cos(a1) * d / ay;
-    let x1 = +Math.sin(a2) * d / ax + x0;
-    let y1 = -Math.cos(a2) * d / ay + y0;
-
-    let tail = webgl.tail;
-    gl.useProgram(tail.program);
-    polyline(hist, webgl.tailpoly);
-    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.tailb);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, webgl.tailpoly);
-    gl.enableVertexAttribArray(tail.a_point);
-    gl.vertexAttribPointer(tail.a_point, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.alpha);
-    gl.enableVertexAttribArray(tail.a_alpha);
-    gl.vertexAttribPointer(tail.a_alpha, 1, gl.FLOAT, false, 0, 0);
-    gl.uniform2f(tail.u_aspect, ax / d, ay / d);
-    gl.uniform3fv(tail.u_color, tailColor);
-    gl.uniform1f(tail.u_cutoff, 1 - hist.length * 2 / hist.v.length);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, hist.length * 2);
-
-    let mass = webgl.mass;
-    gl.useProgram(mass.program);
-    gl.bindBuffer(gl.ARRAY_BUFFER, webgl.quad);
-    gl.enableVertexAttribArray(mass.a_point);
-    gl.vertexAttribPointer(mass.a_point, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform3fv(mass.u_color, massColor);
-    gl.uniform2f(mass.u_aspect, ax, ay);
-    gl.uniform2f(mass.u_center, x0, y0);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.uniform2f(mass.u_center, x1, y1);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    let bar = webgl.bar;
-    gl.useProgram(bar.program);
-    gl.enableVertexAttribArray(bar.a_point);
-    gl.vertexAttribPointer(bar.a_point, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform3fv(bar.u_color, massColor);
-    gl.uniform2f(bar.u_aspect, ax, ay);
-    gl.uniform2f(bar.u_attach, 0, 0);
-    gl.uniform1f(bar.u_angle, a1 - Math.PI / 2);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.uniform2f(bar.u_attach, x0, y0);
-    gl.uniform1f(bar.u_angle, a2 - Math.PI / 2);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-};
 
 function color2style(color) {
     let r = Math.round(255 * color[0]);
@@ -438,12 +467,14 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
     let running = true;
     let gl = useWebGL ? c3d.getContext('webgl') : null;
     let ctx = c2d.getContext('2d');
+    let renderer = null;
 
     if (!gl) {
         mode = '2d-only';
         canvas = c2d;
         c3d.style.display = 'none';
     } else {
+        renderer = new glRenderer(gl, tailMax);
         mode = '3d';
         canvas = c3d;
         c2d.style.display = 'none';
@@ -506,8 +537,7 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
                 state[i].step(dt / 1000.0);
         if (mode === '3d') {
             clear3d(gl);
-            for (let i = 0; i < state.length; i++)
-                state[i].draw3d(gl);
+            renderer.renderAll(state);
         } else {
             clear2d(ctx);
             for (let i = 0; i < state.length; i++)
