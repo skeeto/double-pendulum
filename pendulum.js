@@ -469,7 +469,7 @@ function draw2d(ctx, tail, a1, a2, massColor, tailColor) {
                 let color = [Math.random(), Math.random(), Math.random()];
                 state.push(new pendulum({tailColor: color}));
                 break;
-            case 99:
+            case 99: // c
                 if (state.length) {
                     let color = [Math.random(), Math.random(), Math.random()];
                     state.push(state[0].clone({tailColor: color}));
