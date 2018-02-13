@@ -222,7 +222,7 @@ function compile(gl, vert, frag) {
         throw new Error(gl.getProgramInfoLog(p));
     gl.deleteShader(v);
     gl.deleteShader(f);
-    var result = {
+    let result = {
         program: p
     };
     let nattrib = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
