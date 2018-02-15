@@ -10,7 +10,7 @@ if unavailable.
 * <kbd>c</kbd>: imperfectly clone an existing pendulum
 * <kbd>d</kbd>: delete the most recently added pendulum
 * <kbd>m</kbd>: toggle between WebGL and Canvas rendering
-* <kbd>SPACE</kbd>: pause the simulation.
+* <kbd>SPACE</kbd>: pause the simulation
 
 See also:
 
